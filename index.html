@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Chaos & Fractal Archive v2.2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600&family=JetBrains+Mono:wght@300;400&display=swap');
+
+        :root {
+            --bg-color: #050505;
+            --accent-color: #00f2ff;
+            --panel-bg: rgba(20, 20, 25, 0.85);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .glass {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .gradient-text {
+            background: linear-gradient(90deg, #00f2ff, #7000ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            margin-top: -6px;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="mainCanvas"></canvas>
+
+    <div class="fixed top-6 left-6 z-10 fade-in">
+        <h1 class="text-2xl font-semibold tracking-tighter gradient-text">MORPHOGENESIS V2.2</h1>
+        <p class="text-xs uppercase tracking-widest text-gray-500 mt-1">TDA-Enhanced Complex Systems Archive</p>
+    </div>
+
+    <div class="fixed top-6 right-6 w-80 max-h-[90vh] overflow-y-auto glass p-6 z-10 fade-in custom-scrollbar">
+        <div class="mb-6">
+            <label class="text-xs uppercase text-gray-400 font-bold mb-3 block tracking-widest">Select Simulation</label>
+            <div class="grid grid-cols-1 gap-2" id="simSelector">
+                <button onclick="changeSim('lorenz')" class="sim-btn w-full text-left px-4 py-2 rounded bg-white/5 border border-white/10 hover:border-cyan-500 transition-all text-sm" data-id="lorenz">Lorenz Attractor</button>
+                <button onclick="changeSim('aizawa')" class="sim-btn w-full text-left px-4 py-2 rounded bg-white/5 border border-white/10 hover:border-cyan-500 transition-all text-sm" data-id="aizawa">Aizawa Attractor</button>
+                <button onclick="changeSim('rossler')" class="sim-btn w-full text-left px-4 py-2 rounded bg-white/5 border border-white/10 hover:border-cyan-500 transition-all text-sm" data-id="rossler">Rössler Attractor</button>
+                <button onclick="changeSim('clifford')" class="sim-btn w-full text-left px-4 py-2 rounded bg-white/5 border border-white/10 hover:border-cyan-500 transition-all text-sm" data-id="clifford">Clifford Attractor</button>
+                <button onclick="changeSim('mandelbrot')" class="sim-btn w-full text-left px-4 py-2 rounded bg-white/5 border border-white/10 hover:border-cyan-500 transition-all text-sm" data-id="mandelbrot">Mandelbrot Set</button>
+                <button onclick="changeSim('barnsley')" class="sim-btn w-full text-left px-4 py-2 rounded bg-white/5 border border-white/10 hover:border-cyan-500 transition-all text-sm" data-id="barnsley">Barnsley Fern</button>
+                <button onclick="changeSim('langton')" class="sim-btn w-full text-left px-4 py-2 rounded bg-white/5 border border-white/10 hover:border-cyan-500 transition-all text-sm" data-id="langton">Langton's Ant</button>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <div id="controlsContainer"></div>
+            <button onclick="resetSim()" class="w-full py-2 bg-white/10 hover:bg-white/20 rounded text-xs uppercase tracking-widest transition-all">Reset Simulation</button>
+        </div>
+    </div>
+
+    <div class="fixed bottom-6 left-6 w-96 glass p-6 z-10 fade-in">
+        <div id="simInfo">
+            <h2 id="simTitle" class="text-xl font-semibold mb-2 text-cyan-400">Loading...</h2>
+            <p id="simDesc" class="text-sm text-gray-400 leading-relaxed mb-4">Initializing...</p>
+            
+            <div class="border-t border-white/10 pt-4 mt-4 mb-2">
+                 <label class="text-[10px] uppercase text-gray-500 font-bold tracking-widest">Topological Metrics & TDA</label>
+            </div>
+            <div class="grid grid-cols-1 gap-2 mono text-[10px] uppercase text-gray-500">
+                <div class="flex justify-between">Metric A (Orbit Vol): <span id="metricAVal" class="text-white">N/A</span></div>
+                <div class="flex justify-between">Metric B (Spread): <span id="metricBVal" class="text-white">N/A</span></div>
+                <div class="flex justify-between border-t border-white/5 pt-2 mt-1">
+                    <span class="text-cyan-500 font-bold">TDA Persistence:</span>
+                    <span id="tdaVal" class="text-cyan-400 font-bold">N/A</span>
+                </div>
+                <div class="text-[8px] text-gray-600 mt-1">* Persistence Index monitors homological structural stability.</div>
+            </div>
+
+            <div class="border-t border-white/10 pt-4 mt-4 mb-2">
+                 <label class="text-[10px] uppercase text-gray-500 font-bold tracking-widest">System State</label>
+            </div>
+            <div class="grid grid-cols-1 gap-2 mono text-[10px] uppercase text-gray-500">
+                <div>Primary Variable: <span id="stateVal" class="text-white">Calculating...</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="fixed bottom-6 right-6 z-10 flex space-x-4 text-[10px] mono text-gray-500 uppercase tracking-widest fade-in">
+        <div id="fpsCounter">FPS: --</div>
+        <div>Engine: Canvas 2D Core</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const controlsContainer = document.getElementById('controlsContainer');
+        const stateValDisplay = document.getElementById('stateVal');
+        const metricAValDisplay = document.getElementById('metricAVal');
+        const metricBValDisplay = document.getElementById('metricBVal');
+        const tdaValDisplay = document.getElementById('tdaVal');
+        const fpsCounter = document.getElementById('fpsCounter');
+        const simTitleDisplay = document.getElementById('simTitle');
+        const simDescDisplay = document.getElementById('simDesc');
+
+        let width, height;
+        let currentSimId = null;
+        let points = [];
+        let params = {};
+        let time = 0;
+        let lastTime = 0;
+        let view = { x: 0, y: 0, zoom: 1, rx: 0, ry: 0 };
+        
+        let antGrid, antX, antY, antDir, gridWidth, gridHeight;
+        const ANT_UP=0, ANT_RIGHT=1, ANT_DOWN=2, ANT_LEFT=3;
+        const GRID_SCALE = 4;
+
+        // TDA / Topological Metrics ユーティリティ
+        function updateMetrics(pts) {
+            if (pts.length === 0) return;
+            
+            // 1. Basic Bounding Box Metrics
+            let minX=Infinity, minY=Infinity, minZ=Infinity;
+            let maxX=-Infinity, maxY=-Infinity, maxZ=-Infinity;
+            pts.forEach(p => {
+                minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+                minZ = Math.min(minZ, p.z || 0); maxZ = Math.max(maxZ, p.z || 0);
+            });
+            const dx = maxX-minX, dy = maxY-minY, dz = maxZ-minZ;
+            const spread = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            
+            metricAValDisplay.innerText = (dx * dy * (dz > 0 ? dz : 1)).toFixed(0);
+            metricBValDisplay.innerText = spread.toFixed(1);
+
+            // 2. Simplified TDA (Persistence Index)
+            // サンプリングした点群間の「ホモロジー的持続性」を近似計算
+            const sampleCount = 150;
+            const samples = [];
+            const stride = Math.max(1, Math.floor(pts.length / sampleCount));
+            for(let i=0; i < pts.length; i += stride) samples.push(pts[i]);
+
+            // 特徴的なスケール ε (広がりに対して 5%)
+            const epsilon = spread * 0.05;
+            let connectedCount = 0;
+            
+            // 簡易的な近傍グラフの接続度を計算
+            for(let i=0; i < samples.length; i++) {
+                for(let j=i+1; j < samples.length; j++) {
+                    const d2 = Math.pow(samples[i].x - samples[j].x, 2) + 
+                               Math.pow(samples[i].y - samples[j].y, 2) + 
+                               Math.pow((samples[i].z||0) - (samples[j].z||0), 2);
+                    if(d2 < epsilon * epsilon) connectedCount++;
+                }
+            }
+
+            // Persistence Score: 点群密度に対する接続性の比率
+            // これにより、単なる塊（高スコア）か、バラバラなカオス（低スコア）かを判定
+            const persistence = (connectedCount / (samples.length * 2)).toFixed(3);
+            tdaValDisplay.innerText = persistence;
+        }
+
+        const simDefinitions = {
+            lorenz: {
+                title: "Lorenz Attractor",
+                desc: "3つの微分方程式からなるカオス。わずかな初期値の違いが時間とともに巨大な変化をもたらす「バタフライ効果」を象徴します。",
+                type: 'continuous',
+                init() {
+                    params = { sigma: 10, rho: 28, beta: 8/3, dt: 0.008, size: 3000, color: '#00f2ff' };
+                    points = [{ x: 0.1, y: 0, z: 0 }];
+                    view.zoom = 15; view.ry = 0.5; view.rx = 0;
+                    ctx.fillStyle = '#050505'; ctx.fillRect(0,0,width,height);
+                },
+                update() {
+                    let last = points[points.length - 1];
+                    for(let i=0; i<6; i++) {
+                        let dx = params.sigma * (last.y - last.x) * params.dt;
+                        let dy = (last.x * (params.rho - last.z) - last.y) * params.dt;
+                        let dz = (last.x * last.y - params.beta * last.z) * params.dt;
+                        last = { x: last.x + dx, y: last.y + dy, z: last.z + dz };
+                        points.push(last);
+                        if(points.length > params.size) points.shift();
+                    }
+                    stateValDisplay.innerText = `X:${last.x.toFixed(1)} Y:${last.y.toFixed(1)} Z:${last.z.toFixed(1)}`;
+                    updateMetrics(points);
+                },
+                draw() {
+                    ctx.fillStyle = 'rgba(5, 5, 5, 0.1)';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.strokeStyle = params.color;
+                    ctx.lineWidth = 1.5;
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.beginPath();
+                    points.forEach((p, i) => {
+                        let projected = project3D(p.x, p.y, p.z);
+                        if(i === 0) ctx.moveTo(projected.x, projected.y);
+                        else ctx.lineTo(projected.x, projected.y);
+                    });
+                    ctx.stroke();
+                    ctx.globalCompositeOperation = 'source-over';
+                }
+            },
+            aizawa: {
+                title: "Aizawa Attractor",
+                desc: "球状の構造を持つ美しいアトラクタ。中心の球体を軸に複雑な螺旋を描きながらエネルギーの保存と散逸を繰り返します。",
+                type: 'continuous',
+                init() {
+                    params = { a: 0.95, b: 0.7, c: 0.6, d: 3.5, e: 0.25, f: 0.1, dt: 0.012, size: 4000, color: '#ff0070' };
+                    points = [{ x: 0.1, y: 0, z: 0 }];
+                    view.zoom = 180; view.ry = 0; view.rx = 0.3;
+                    ctx.fillStyle = '#050505'; ctx.fillRect(0,0,width,height);
+                },
+                update() {
+                    let last = points[points.length - 1];
+                    for(let i=0; i<5; i++) {
+                        let {a, b, c, d, e, f, dt} = params;
+                        let dx = ((last.z - b) * last.x - d * last.y) * dt;
+                        let dy = (d * last.x + (last.z - b) * last.y) * dt;
+                        let dz = (c + a * last.z - Math.pow(last.z, 3)/3 - (Math.pow(last.x, 2) + Math.pow(last.y, 2)) * (1 + e * last.z) + f * last.z * Math.pow(last.x, 3)) * dt;
+                        last = { x: last.x + dx, y: last.y + dy, z: last.z + dz };
+                        points.push(last);
+                        if(points.length > params.size) points.shift();
+                    }
+                    stateValDisplay.innerText = `Z-axis: ${last.z.toFixed(2)}`;
+                    updateMetrics(points);
+                },
+                draw() {
+                    ctx.fillStyle = 'rgba(5, 5, 5, 0.1)';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.strokeStyle = params.color;
+                    ctx.lineWidth = 1;
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.beginPath();
+                    points.forEach((p, i) => {
+                        let projected = project3D(p.x, p.y, p.z);
+                        if(i === 0) ctx.moveTo(projected.x, projected.y);
+                        else ctx.lineTo(projected.x, projected.y);
+                    });
+                    ctx.stroke();
+                    ctx.globalCompositeOperation = 'source-over';
+                }
+            },
+            rossler: {
+                title: "Rössler Attractor",
+                desc: "カオス系の一つ。リボンのように折り畳まれる美しい軌道が特徴で、トポロジーの変化が顕著に現れます。",
+                type: 'continuous',
+                init() {
+                    params = { a: 0.2, b: 0.2, c: 5.7, dt: 0.02, size: 4000, color: '#ffaa00' };
+                    points = [{ x: 1, y: 1, z: 1 }];
+                    view.zoom = 25; view.ry = 0.8; view.rx = 1.0;
+                    ctx.fillStyle = '#050505'; ctx.fillRect(0,0,width,height);
+                },
+                update() {
+                    let last = points[points.length - 1];
+                    for(let i=0; i<5; i++) {
+                        let {a, b, c, dt} = params;
+                        let dx = (-last.y - last.z) * dt;
+                        let dy = (last.x + a * last.y) * dt;
+                        let dz = (b + last.z * (last.x - c)) * dt;
+                        last = { x: last.x + dx, y: last.y + dy, z: last.z + dz };
+                        points.push(last);
+                        if(points.length > params.size) points.shift();
+                    }
+                    stateValDisplay.innerText = `X:${last.x.toFixed(1)} Z:${last.z.toFixed(1)}`;
+                    updateMetrics(points);
+                },
+                draw() {
+                    ctx.fillStyle = 'rgba(5, 5, 5, 0.1)';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.strokeStyle = params.color;
+                    ctx.lineWidth = 1.2;
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.beginPath();
+                    points.forEach((p, i) => {
+                        let projected = project3D(p.x, p.y, p.z);
+                        if(i === 0) ctx.moveTo(projected.x, projected.y);
+                        else ctx.lineTo(projected.x, projected.y);
+                    });
+                    ctx.stroke();
+                    ctx.globalCompositeOperation = 'source-over';
+                }
+            },
+            clifford: {
+                title: "Clifford Attractor",
+                desc: "2次元の離散写像。パラメータのわずかな変化で点群のトポロジーが劇的に変化します。",
+                type: 'discrete',
+                init() {
+                    params = { a: -1.4, b: 1.6, c: 1.0, d: 0.7, color: '#7000ff', density: 50000 };
+                    this.calculatePoints();
+                    view.zoom = 150;
+                },
+                calculatePoints() {
+                    points = [];
+                    let x = 0.1, y = 0.1;
+                    for(let i=0;i<100;i++){
+                        let nx = Math.sin(params.a * y) + params.c * Math.cos(params.a * x);
+                        let ny = Math.sin(params.b * x) + params.d * Math.cos(params.b * y);
+                        x = nx; y = ny;
+                    }
+                    for(let i=0; i<params.density; i++) {
+                        let nx = Math.sin(params.a * y) + params.c * Math.cos(params.a * x);
+                        let ny = Math.sin(params.b * x) + params.d * Math.cos(params.b * y);
+                        x = nx; y = ny;
+                        points.push({x, y});
+                    }
+                },
+                update() {
+                    stateValDisplay.innerText = `Points: ${points.length}`;
+                    updateMetrics(points);
+                },
+                draw() {
+                    ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, width, height);
+                    ctx.fillStyle = params.color;
+                    ctx.globalAlpha = 0.15;
+                    ctx.globalCompositeOperation = 'lighter';
+                    points.forEach(p => {
+                        ctx.beginPath();
+                        ctx.arc(width/2 + p.x * view.zoom, height/2 + p.y * view.zoom, 0.6, 0, Math.PI*2);
+                        ctx.fill();
+                    });
+                    ctx.globalAlpha = 1.0;
+                    ctx.globalCompositeOperation = 'source-over';
+                },
+                onParamChange() { this.calculatePoints(); }
+            },
+            mandelbrot: {
+                title: "Mandelbrot Set",
+                desc: "境界付近の無限に続く複雑な構造。TDA的には無限のコンポーネントを含みます。",
+                type: 'fractal',
+                needsRedraw: true,
+                init() {
+                    params = { maxIter: 60, colorScale: 1.0 };
+                    view.zoom = 250; view.x = -0.5; view.y = 0;
+                    this.needsRedraw = true;
+                },
+                update() {
+                    stateValDisplay.innerText = `Iter: ${params.maxIter}`;
+                    metricAValDisplay.innerText = "∞";
+                    metricBValDisplay.innerText = "2.0 (Full)";
+                    tdaValDisplay.innerText = "Complex";
+                },
+                draw() {
+                    if(!this.needsRedraw) return;
+                    const step = 2;
+                    ctx.fillStyle = '#050505'; ctx.fillRect(0,0,width,height);
+                    for(let i=0; i<width; i+=step) {
+                        for(let j=0; j<height; j+=step) {
+                            let x0 = (i - width/2) / view.zoom + view.x;
+                            let y0 = (j - height/2) / view.zoom + view.y;
+                            let x = 0, y = 0, iter = 0;
+                            while(x*x + y*y <= 4 && iter < params.maxIter) {
+                                let xtemp = x*x - y*y + x0;
+                                y = 2*x*y + y0;
+                                x = xtemp;
+                                iter++;
+                            }
+                            if(iter < params.maxIter) {
+                                let hue = 180 + (iter / params.maxIter) * 180 * params.colorScale;
+                                let lightness = 30 + (iter/params.maxIter)*40;
+                                ctx.fillStyle = `hsl(${hue}, 80%, ${lightness}%)`;
+                                ctx.fillRect(i, j, step, step);
+                            }
+                        }
+                    }
+                    this.needsRedraw = false;
+                },
+                onParamChange() { this.needsRedraw = true; }
+            },
+            barnsley: {
+                title: "Barnsley Fern",
+                desc: "IFSフラクタル。高度に自己相似的なトポロジーを持ちます。",
+                type: 'discrete',
+                init() {
+                    params = { color: '#44ff44', iterations: 30000 };
+                    this.calculatePoints();
+                    view.zoom = 60;
+                },
+                calculatePoints() {
+                    points = [];
+                    let x = 0, y = 0;
+                    for(let i=0; i<params.iterations; i++) {
+                        let r = Math.random();
+                        let nx, ny;
+                        if(r < 0.01) { nx = 0; ny = 0.16 * y; }
+                        else if(r < 0.85) { nx = 0.85 * x + 0.04 * y; ny = -0.04 * x + 0.85 * y + 1.6; }
+                        else if(r < 0.92) { nx = 0.2 * x - 0.26 * y; ny = 0.23 * x + 0.22 * y + 1.6; }
+                        else { nx = -0.15 * x + 0.28 * y; ny = 0.26 * x + 0.24 * y + 0.44; }
+                        x = nx; y = ny;
+                        points.push({x, y});
+                    }
+                },
+                update() {
+                    stateValDisplay.innerText = `Pts: ${params.iterations}`;
+                    updateMetrics(points);
+                },
+                draw() {
+                    ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, width, height);
+                    ctx.fillStyle = params.color;
+                    ctx.globalCompositeOperation = 'lighter';
+                    points.forEach(p => {
+                        ctx.fillRect(width/2 + p.x * view.zoom, height - 50 - p.y * view.zoom, 1, 1);
+                    });
+                    ctx.globalCompositeOperation = 'source-over';
+                },
+                onParamChange() { this.calculatePoints(); }
+            },
+            langton: {
+                title: "Langton's Ant",
+                desc: "セルオートマトン。時間とともにトポロジー（エントロピー）が劇的に変化します。",
+                type: 'automata',
+                init() {
+                    params = { speed: 10, color: '#ff3333' };
+                    gridWidth = Math.floor(width / GRID_SCALE);
+                    gridHeight = Math.floor(height / GRID_SCALE);
+                    antGrid = new Uint8Array(gridWidth * gridHeight).fill(0);
+                    antX = Math.floor(gridWidth / 2);
+                    antY = Math.floor(gridHeight / 2);
+                    antDir = ANT_UP;
+                    time = 0;
+                    ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, width, height);
+                },
+                update() {
+                    for(let i=0; i<params.speed; i++) {
+                        const index = antY * gridWidth + antX;
+                        const state = antGrid[index];
+                        if(state === 0) { antDir = (antDir + 1) % 4; antGrid[index] = 1; }
+                        else { antDir = (antDir + 3) % 4; antGrid[index] = 0; }
+                        if(antDir === ANT_UP) antY--;
+                        else if(antDir === ANT_RIGHT) antX++;
+                        else if(antDir === ANT_DOWN) antY++;
+                        else if(antDir === ANT_LEFT) antX--;
+                        antX = (antX + gridWidth) % gridWidth;
+                        antY = (antY + gridHeight) % gridHeight;
+                        time++;
+                    }
+                    stateValDisplay.innerText = `Steps: ${time}`;
+                    let activeCells = 0;
+                    for(let i=0; i<antGrid.length; i++) if(antGrid[i] === 1) activeCells++;
+                    metricAValDisplay.innerText = activeCells;
+                    metricBValDisplay.innerText = (activeCells / (gridWidth*gridHeight)).toFixed(4);
+                    tdaValDisplay.innerText = time > 10000 ? "Cyclic" : "Emergent";
+                },
+                draw() {
+                    ctx.fillStyle = '#050505'; ctx.fillRect(0,0,width,height);
+                    ctx.fillStyle = params.color;
+                    for(let y=0; y<gridHeight; y++) {
+                        for(let x=0; x<gridWidth; x++) {
+                            if(antGrid[y*gridWidth + x] === 1) {
+                                ctx.fillRect(x * GRID_SCALE, y * GRID_SCALE, GRID_SCALE-0.5, GRID_SCALE-0.5);
+                            }
+                        }
+                    }
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(antX * GRID_SCALE, antY * GRID_SCALE, GRID_SCALE, GRID_SCALE);
+                }
+            }
+        };
+
+        function init() {
+            resize();
+            changeSim('lorenz');
+            requestAnimationFrame(loop);
+        }
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            if(currentSimId && simDefinitions[currentSimId].onParamChange) {
+                simDefinitions[currentSimId].onParamChange();
+            }
+        }
+
+        function project3D(x, y, z) {
+            let cosY = Math.cos(view.ry);
+            let sinY = Math.sin(view.ry);
+            let cosX = Math.cos(view.rx);
+            let sinX = Math.sin(view.rx);
+            let x1 = x * cosY - z * sinY;
+            let z1 = x * sinY + z * cosY;
+            let y2 = y * cosX - z1 * sinX;
+            return {
+                x: width / 2 + x1 * view.zoom,
+                y: height / 2 + y2 * view.zoom
+            };
+        }
+
+        function loop(now) {
+            const delta = (now - lastTime) / 1000;
+            lastTime = now;
+            fpsCounter.innerText = `FPS: ${Math.round(1/delta) || 60}`;
+            const sim = simDefinitions[currentSimId];
+            if(sim) {
+                sim.update();
+                sim.draw();
+                if(sim.type === 'continuous') view.ry += 0.002;
+            }
+            requestAnimationFrame(loop);
+        }
+
+        function changeSim(id) {
+            if(currentSimId === id) return;
+            currentSimId = id;
+            const sim = simDefinitions[id];
+            document.querySelectorAll('.sim-btn').forEach(btn => {
+                const isActive = btn.dataset.id === id;
+                btn.classList.toggle('border-cyan-500', isActive);
+                btn.classList.toggle('bg-white/10', isActive);
+                btn.classList.toggle('text-cyan-400', isActive);
+            });
+            simTitleDisplay.innerText = sim.title;
+            simDescDisplay.innerText = sim.desc;
+            ctx.clearRect(0,0,width,height);
+            sim.init();
+            controlsContainer.innerHTML = '';
+            Object.keys(params).forEach(key => {
+                if(typeof params[key] === 'number' && !['size', 'density', 'iterations'].includes(key)) {
+                    const div = document.createElement('div');
+                    const isInt = ['maxIter', 'speed'].includes(key);
+                    const step = isInt ? 1 : (key === 'dt' ? 0.001 : 0.01);
+                    let min = params[key] * 0.5;
+                    let max = params[key] * 1.5;
+                    if(key === 'dt') { min = 0.001; max = 0.05; }
+                    if(isInt) { min = 1; max = params[key] * 3; }
+                    div.innerHTML = `
+                        <div class="flex justify-between text-[10px] uppercase text-gray-400 mb-1">
+                            <span>${key}</span>
+                            <span class="mono text-white" id="val-${key}">${params[key].toFixed(isInt ? 0 : 3)}</span>
+                        </div>
+                        <input type="range" class="w-full" min="${min}" max="${max}" step="${step}" value="${params[key]}" oninput="updateParam('${key}', this.value, ${isInt})">
+                    `;
+                    controlsContainer.appendChild(div);
+                }
+            });
+        }
+
+        function updateParam(key, val, isInt) {
+            params[key] = isInt ? parseInt(val) : parseFloat(val);
+            const valEl = document.getElementById(`val-${key}`);
+            if(valEl) valEl.innerText = params[key].toFixed(isInt ? 0 : 3);
+            const sim = simDefinitions[currentSimId];
+            if(sim.onParamChange) sim.onParamChange();
+            else if(sim.type === 'continuous') sim.init();
+        }
+
+        function resetSim() {
+            simDefinitions[currentSimId].init();
+        }
+
+        window.addEventListener('resize', resize);
+        let isDragging = false;
+        let lastMouseX, lastMouseY;
+        canvas.addEventListener('mousedown', e => {
+            if(simDefinitions[currentSimId].type === 'continuous') {
+                isDragging = true;
+                lastMouseX = e.clientX; lastMouseY = e.clientY;
+            }
+        });
+        window.addEventListener('mousemove', e => {
+            if(isDragging) {
+                view.ry += (e.clientX - lastMouseX) * 0.005;
+                view.rx += (e.clientY - lastMouseY) * 0.005;
+                lastMouseX = e.clientX; lastMouseY = e.clientY;
+            }
+        });
+        window.addEventListener('mouseup', () => isDragging = false);
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            if(e.deltaY < 0) view.zoom *= 1.05; else view.zoom /= 1.05;
+            if(currentSimId === 'mandelbrot') simDefinitions.mandelbrot.needsRedraw = true;
+        });
+
+        init();
+    </script>
+</body>
+</html>
